@@ -3,7 +3,9 @@ import cohere
 import os
 
 app = Flask(__name__)
-co = cohere.Client(os.getenv("SZokWrVowtqdT95uLkyBJu0HppTDFjBZBolcuaWK"))
+
+# Safe API key usage
+co = cohere.Client(os.getenv("COHERE_API_KEY"))
 
 @app.route("/")
 def home():
@@ -14,38 +16,31 @@ def chat():
     data = request.get_json()
     user_msg = data.get("message", "")
 
-    # ===== STYLE EXAMPLES =====
-    style_examples = """
-Friend: hey, what’s up?
-You: not much, just chilling lol. u?
-Friend: how was your day?
-You: good, nothing crazy. you?
-Friend: wanna hang later?
-You: maybe, depends what time 😊
-Friend: did you see that thing online?
-You: yeah lol, kinda interesting
-Friend: can you explain that to me?
-You: sure, i'll keep it simple, basically...
-"""
-    # ===== END STYLE EXAMPLES =====
-
-    prompt = f"""
-You are Alex. Reply exactly like Alex would, casual and chill.
-{style_examples}
-Now reply to this new message:
-User: {user_msg}
-You:
-"""
-
-    response = co.generate(
-        model="command-r",
-        prompt=prompt,
-        max_tokens=100,
-        temperature=0.8
+    # System message defines your style
+    system_msg = (
+        "You are Alex. Reply exactly like Alex would, casual, chill, short, and friendly. "
+        "Keep it conversational and simple, like texting a friend."
     )
 
-    reply_text = response.generations[0].text.strip()
-    return jsonify({"reply": reply_text})
+    # Call Cohere Chat API
+    try:
+        response = co.chat(
+            model="xlarge",
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_msg}
+            ],
+            temperature=0.8
+        )
+
+        # Get the generated reply
+        reply_text = response.output[0].content.strip()
+        return jsonify({"reply": reply_text})
+
+    except Exception as e:
+        # Catch errors to avoid crashing the server
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
+    # For Render, host on 0.0.0.0 and port 10000
     app.run(host="0.0.0.0", port=10000)
